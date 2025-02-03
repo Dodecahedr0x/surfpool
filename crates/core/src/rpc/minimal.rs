@@ -4,7 +4,7 @@ use crate::rpc::{
 };
 
 use super::RunloopContext;
-use jsonrpc_core::Result;
+use jsonrpc_core::{Error, Result};
 use jsonrpc_derive::rpc;
 use solana_account_decoder::UiAccount;
 use solana_client::{
@@ -137,12 +137,19 @@ impl Minimal for SurfpoolMinimalRpc {
         &self,
         meta: Self::Metadata,
         pubkey_str: String,
-        config: Option<RpcContextConfig>,
+        _config: Option<RpcContextConfig>, // TODO: use config
     ) -> Result<RpcResponse<u64>> {
         println!("get_balance rpc request received: {:?}", pubkey_str);
         let pubkey = verify_pubkey(&pubkey_str)?;
-        // meta.get_balance(&pubkey, config.unwrap_or_default())
-        unimplemented!()
+        let state = meta.get_state()?;
+
+        Ok(RpcResponse {
+            context: RpcResponseContext::new(state.epoch_info.absolute_slot),
+            value: state
+                .svm
+                .get_balance(&pubkey)
+                .ok_or_else(|| Error::invalid_params(format!("unknown provided account")))?,
+        })
     }
 
     fn get_epoch_info(
